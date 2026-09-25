@@ -1,0 +1,13 @@
+{
+  "name": "envrelay",
+  "version": "1.0.0",
+  "description": "Move a development environment to a new machine: back up dotfiles, credentials, git repositories, AI coding agent state and installed software into one passphrase-encrypted file, then restore it step by step.",
+  "author": {
+    "name": "FutrixDev",
+    "url": "https://github.com/FutrixDev"
+  },
+  "homepage": "https://envrelay.com/",
+  "repository": "https://github.com/FutrixDev/envrelay-skill",
+  "license": "MIT OR Apache-2.0",
+  "keywords": ["backup", "restore", "migration", "dotfiles", "developer-environment", "new-machine"]
+}

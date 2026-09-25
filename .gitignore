@@ -1,0 +1,14 @@
+/target/
+
+# Backups and staging trees must never be committed: one holds the plaintext of
+# a whole development environment, the other its encrypted twin.
+*.envrelay
+/envrelay-staging-*/
+
+# Editors and operating systems.
+.DS_Store
+.idea/
+.vscode/
+*.swp
+__pycache__/
+*.pyc

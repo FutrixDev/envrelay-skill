@@ -1,0 +1,75 @@
+# One crate, the skill's scripts and its installer. The tests unpack real
+# permission bits and symlinks, so they need a Unix filesystem; macOS and Linux
+# are the platforms the MVP promises (see docs/mvp-v1-design.md section 6).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned toolchain
+        run: |
+          rustup toolchain install
+          rustup show active-toolchain
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --release --locked
+      # The installer against a release packaged from this checkout, under
+      # every shell the runner has: macOS brings bash, dash and zsh; Ubuntu's
+      # sh is dash.
+      - name: Installer tests
+        run: |
+          for shell in sh dash bash zsh; do
+            if command -v "$shell" >/dev/null; then SH=$shell sh tests/installer.sh; fi
+          done
+      # The skill's scripts must at least parse everywhere the skill runs;
+      # they promise stdlib-only Python 3.9+, so no dependency install here.
+      # Compiling with a real 3.9 is what makes that promise testable — the
+      # runner's default python happily accepts 3.10+ syntax. Linux only:
+      # setup-python's 3.9 builds predate Apple silicon.
+      - uses: actions/setup-python@v7
+        if: runner.os == 'Linux'
+        with:
+          python-version: "3.9"
+      - run: python3 -m compileall -q skills/envrelay/scripts
+
+  scripts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          shellcheck skills/envrelay/install.sh .github/scripts/*.sh tests/installer.sh
+      - name: The versions agree
+        run: sh .github/scripts/check-versions.sh

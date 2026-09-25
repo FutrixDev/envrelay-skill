@@ -1,0 +1,72 @@
+# Smoke-test https://envrelay.com after every release: install from the live
+# site, through the one-liner a user types, on macOS and Linux. The site lives
+# in a repository of its own (docs/decisions/025-site-in-its-own-repository.md),
+# and its /install.sh leads to this repository's latest release. The design is
+# in docs/decisions/024-one-command-install.md.
+name: smoke
+on:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  # After a release run, only one that published: a run started by hand stops
+  # before publishing anything. Every request here says it is this test (-A),
+  # which the site's download counts leave out.
+  smoke:
+    name: smoke ${{ matrix.os }}
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+      - name: Install with the one-liner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+            --pattern install.sh --dir "$RUNNER_TEMP/release"
+          # A site deploy that has only just happened can take minutes to
+          # show, the first above all, which also creates the DNS records and
+          # certificates.
+          served() {
+            for host in envrelay.com www.envrelay.com; do
+              curl -fsSL -A envrelay-smoke "https://$host/install.sh" -o "$RUNNER_TEMP/served.sh" || return 1
+              cmp -s "$RUNNER_TEMP/served.sh" "$RUNNER_TEMP/release/install.sh" || return 1
+            done
+          }
+          attempt=1
+          until served; do
+            if [ "$attempt" -ge 60 ]; then
+              echo "::error::envrelay.com and www.envrelay.com still do not both lead to the $tag install.sh after 10 minutes"
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            sleep 10
+          done
+          # Plain http serves nothing, only a redirect to the same URL on https.
+          for host in envrelay.com www.envrelay.com; do
+            got=$(curl -sS -A envrelay-smoke -o /dev/null -w '%{http_code} %{redirect_url}' "http://$host/install.sh")
+            case $got in
+              30[1278]" https://$host/install.sh") ;;
+              *)
+                echo "::error::http://$host/install.sh answered \"$got\" instead of a redirect to https: turn on Always Use HTTPS in Cloudflare, under envrelay.com, SSL/TLS, Edge Certificates"
+                exit 1
+                ;;
+            esac
+          done
+          home="$RUNNER_TEMP/home"
+          mkdir "$home"
+          curl -fsSL -A envrelay-smoke https://envrelay.com/install.sh | HOME="$home" SHELL=/bin/bash sh
+          test "$("$home/.local/bin/envrelay" --version)" = "envrelay ${tag#v}"
+          test -f "$home/.agents/skills/envrelay/SKILL.md"

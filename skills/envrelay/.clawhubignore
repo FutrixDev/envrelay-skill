@@ -1,0 +1,4 @@
+# Left out of `clawhub skill publish`. Python writes bytecode here when the
+# scripts run, and ClawHub refuses a skill that contains any.
+__pycache__/
+*.pyc

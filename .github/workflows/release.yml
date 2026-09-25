@@ -1,0 +1,171 @@
+# Build envrelay for every platform install.sh knows, package it with the
+# skill, install the result on each platform, and on a version tag publish it
+# as a GitHub release. The one-line installer downloads from the latest one,
+# whose install.sh envrelay.com redirects to; once a release is out, smoke.yml
+# installs from there. See docs/decisions/024-one-command-install.md.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  # A run without a tag goes as far as the verify job and publishes nothing.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      # install.sh downloads release assets without signing in, which works
+      # only from a public repository; so do ubuntu-24.04-arm runners.
+      - name: The repository is public
+        if: github.event.repository.private
+        run: |
+          echo "::error::Make the repository public before releasing: install.sh cannot download a private repository's release assets."
+          exit 1
+      - name: The versions agree
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: sh .github/scripts/check-versions.sh ${TAG:+"$TAG"}
+
+  build:
+    name: build ${{ matrix.asset }}
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            asset: universal-apple-darwin
+          - os: ubuntu-latest
+            asset: x86_64-unknown-linux-musl
+          - os: ubuntu-24.04-arm
+            asset: aarch64-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned toolchain
+        run: |
+          rustup toolchain install
+          rustup show active-toolchain
+      # One file for both Mac architectures. 11.0 is the oldest macOS that
+      # runs on Apple silicon.
+      - name: Build for macOS
+        if: runner.os == 'macOS'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+          mkdir -p out
+          lipo -create -output out/envrelay \
+            target/aarch64-apple-darwin/release/envrelay \
+            target/x86_64-apple-darwin/release/envrelay
+      # Static musl binaries run on any Linux distribution, glibc or not.
+      # zstd's C code is compiled with musl-gcc, on each runner's own
+      # architecture.
+      - name: Build for Linux
+        if: runner.os == 'Linux'
+        env:
+          TARGET: ${{ matrix.asset }}
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CC_aarch64_unknown_linux_musl: musl-gcc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          rustup target add "$TARGET"
+          cargo build --release --locked --target "$TARGET"
+          mkdir -p out
+          cp "target/$TARGET/release/envrelay" out/envrelay
+      - name: Check the binary
+        run: |
+          file out/envrelay
+          out/envrelay --version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bin-${{ matrix.asset }}
+          path: out/envrelay
+          if-no-files-found: error
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      # One directory per platform, bins/bin-<asset>/envrelay: the layout
+      # package-release.sh reads.
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: bin-*
+          path: bins
+      - run: sh .github/scripts/package-release.sh bins dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+
+  # Install from the packaged release, as a user would, before anything is
+  # published.
+  verify:
+    name: verify ${{ matrix.os }}
+    needs: package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Install into an empty home
+        run: |
+          home="$RUNNER_TEMP/home"
+          mkdir "$home"
+          HOME="$home" SHELL=/bin/bash ENVRELAY_DOWNLOAD_URL="$PWD/dist" sh dist/install.sh
+          "$home/.local/bin/envrelay" --version
+          test -f "$home/.agents/skills/envrelay/SKILL.md"
+          test -L "$home/.claude/skills/envrelay"
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      # Lets anyone check where a download came from:
+      # gh attestation verify <file> --repo FutrixDev/envrelay-skill
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --title "EnvRelay $TAG" --generate-notes

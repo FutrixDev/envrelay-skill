@@ -1,0 +1,18 @@
+{
+  "name": "envrelay",
+  "owner": {
+    "name": "FutrixDev",
+    "url": "https://github.com/FutrixDev"
+  },
+  "metadata": {
+    "description": "EnvRelay, the skill that carries a development environment to a new machine."
+  },
+  "plugins": [
+    {
+      "name": "envrelay",
+      "source": "./",
+      "description": "Move a development environment to a new machine: back up dotfiles, credentials, git repositories, AI coding agent state and installed software into one passphrase-encrypted file, then restore it step by step.",
+      "category": "productivity"
+    }
+  ]
+}

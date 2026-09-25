@@ -3,7 +3,8 @@
 Date: 2026-09-24
 Status: accepted
 Extends: ADR-022 (deterministic mechanics scripts)
-Amended by: ADR-025 (the site moves to a repository of its own)
+Amended by: ADR-025 (the site moves to a repository of its own), ADR-026
+(frontmatter and manifests that awesome-copilot accepts)
 
 ## Context
 
@@ -101,15 +102,16 @@ step: it shows the user the `--dry-run` plan, says what `envrelay` is, and runs
 `install.sh --bin-only` only on a yes. Installing the passphrase layer is the
 user's decision, like every other install the skill proposes.
 
-**One version, written in three places.** `Cargo.toml` (what `envrelay
+**One version, written in four places.** `Cargo.toml` (what `envrelay
 --version` prints), `metadata.version` in SKILL.md (which release the skill's
-installer fetches) and `.claude-plugin/plugin.json` (what Claude Code compares
-to offer an update). `.github/scripts/check-versions.sh` fails CI and the
-release preflight unless they agree. It asks the installer which release it
-would fetch rather than reading SKILL.md a second way, so the check and the
-user's path share one parser. The homepage's badge and demo name the version
-too, from a meta tag that the site's repository sets after each release
-(ADR-025).
+installer fetches), `.claude-plugin/plugin.json` (what Claude Code compares to
+offer an update) and `plugin.json` at the root (the same manifest for Copilot
+CLI, VS Code and awesome-copilot, ADR-026). `.github/scripts/check-versions.sh`
+fails CI and the release preflight unless they agree. It asks the installer
+which release it would fetch rather than reading SKILL.md a second way, so the
+check and the user's path share one parser. The homepage's badge and demo name
+the version too, from a meta tag that the site's repository sets after each
+release (ADR-025).
 
 That is what makes a skill installed from anywhere safe. Run from inside an
 installed skill, `install.sh` fetches the release matching the `SKILL.md`
@@ -125,13 +127,14 @@ the latest release.
 - `allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/*)` pre-approves the
   scripts and nothing else. The installer and `envrelay` stay behind a prompt.
 - `compatibility` names what the skill needs to run.
-- `metadata.openclaw` declares the required binaries (python3, git), the
-  operating systems (darwin, linux), the two optional environment variables
-  the installer reads, and the homepage. OpenClaw decides from these whether
-  the skill can load, and ClawHub's review compares them with what the code
-  does. The Agent Skills spec expects `metadata` to map strings to strings;
-  OpenClaw documents this nested shape, and no validator we have found
-  rejects it.
+- A top-level `clawdis` block declares the required binaries (python3, git),
+  the operating systems (darwin, linux), the two optional environment
+  variables the installer reads, and the homepage, and ClawHub's review
+  compares them with what the code does. v1.0.0 had them in
+  `metadata.openclaw`, where OpenClaw itself also read them to decide whether
+  the skill can load. They moved because awesome-copilot's lint refuses a
+  `metadata` value that is not a string. OpenClaw does not read the new block
+  (ADR-026).
 - There is no `license` field. ClawHub releases every skill it publishes under
   MIT-0 and asks for no conflicting license terms in SKILL.md, so the field
   would be wrong there. The repository's MIT OR Apache-2.0 covers the source,
@@ -216,7 +219,8 @@ Smithery, GitHub's awesome-copilot, the directories that crawl GitHub, and the
 awesome lists. `docs/publishing.md` is the checklist, with what each one asks
 for and why some are left out. The repository is also a plugin marketplace of
 its own (`.claude-plugin/`), which Claude Code, GitHub Copilot CLI and VS Code
-read.
+read; the last two take the plugin's manifest from the root `plugin.json`
+(ADR-026).
 
 `gh skill publish` is used only as `--dry-run`, plus the `agent-skills` repo
 topic it would otherwise add. Without `--dry-run` it creates a GitHub release

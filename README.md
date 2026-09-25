@@ -229,7 +229,7 @@ sh .github/scripts/check-versions.sh
 
 ## Releasing
 
-1. Set the new version in `Cargo.toml`, in `metadata.version` in [`skills/envrelay/SKILL.md`](skills/envrelay/SKILL.md) and in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json), and run `cargo build` so `Cargo.lock` follows. CI fails until the three agree.
+1. Set the new version in `Cargo.toml`, in `metadata.version` in [`skills/envrelay/SKILL.md`](skills/envrelay/SKILL.md), in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) and in [`plugin.json`](plugin.json), and run `cargo build` so `Cargo.lock` follows. CI fails until the four agree.
 2. Once that is merged, tag the merge commit on GitHub's main and push the tag right away (until the release exists, a skill installed from main asks for a release that is not there yet), for example:
 
    ```bash

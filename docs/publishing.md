@@ -125,30 +125,35 @@ of its own ([ADR-025](decisions/025-site-in-its-own-repository.md)).
 
 ### The repository's own plugin marketplace
 
-`.claude-plugin/marketplace.json` makes the repository a plugin marketplace,
-and `.claude-plugin/plugin.json` describes its one plugin. It works as soon as
-the repository is public, and the README lists it.
+`.claude-plugin/marketplace.json` makes the repository a plugin marketplace
+with one plugin, which two manifests describe with the same fields:
+`.claude-plugin/plugin.json` for Claude Code, and `plugin.json` at the root, in
+the [Agent Plugins](https://agent-plugins.org/) format, for GitHub Copilot CLI,
+VS Code and awesome-copilot
+([ADR-026](decisions/026-frontmatter-and-manifests-for-awesome-copilot.md)). It
+works as soon as the repository is public, and the README lists it.
 
 - Claude Code: `/plugin marketplace add FutrixDev/envrelay-skill`, then
   `/plugin install envrelay@envrelay`.
-- GitHub Copilot CLI reads the same files: `copilot plugin marketplace add
+- GitHub Copilot CLI reads the same marketplace: `copilot plugin marketplace add
   FutrixDev/envrelay-skill`, then `copilot plugin install envrelay@envrelay`.
 - VS Code's agent plugins read it when the repository is added to the
   `chat.plugins.marketplaces` setting. Factory Droid falls back to
   `.claude-plugin/marketplace.json` as well (its commands were not checked).
 
 Validate before every release; it passes with no errors or warnings as of
-v1.0.0:
+v1.0.1:
 
 ```bash
 claude plugin validate --strict .
 ```
 
-Keep a single plugin manifest. Copilot CLI looks for `.plugin/plugin.json`,
-then `plugin.json` at the root, then `.github/plugin/plugin.json`, and only
-then `.claude-plugin/plugin.json`, so a manifest added in any of those places
-(a registry's import tool may write one) would silently take over, and would
-be a fourth place to keep the version in.
+Keep these two manifests and no others. awesome-copilot reads
+`.github/plugin/plugin.json` and `.plugin/plugin.json` before the one at the
+root, and Copilot CLI's documented lookup checks `.plugin/plugin.json` first as
+well, so a manifest in either place (a registry's import tool may write one)
+would silently take over. `check-versions.sh` fails CI unless the two agree
+field for field, apart from `$schema`.
 
 ### gh skill (GitHub CLI 2.90 or later)
 
@@ -193,8 +198,9 @@ Claiming the listing (`tessl skill import ./skills/envrelay --workspace
 <workspace>`, plus a GitHub Action with a Tessl API key as a secret) is
 optional, and two things argue against doing it casually. Publishing a skill
 publicly on Tessl cannot be undone. And the import generates a Tessl
-`plugin.json`: see where it lands before committing it ("Keep a single plugin
-manifest", above).
+`plugin.json`, while the root already has one: see where the generated one
+lands before committing anything ("Keep these two manifests and no others",
+above).
 
 ### Directories that crawl GitHub
 
@@ -235,9 +241,11 @@ is MIT-0, while the repository stays MIT OR Apache-2.0.
 
 To publish:
 
-1. Install the CLI and sign in. The login is a device code confirmed in the
-   browser. ClawHub accepts uploads only from GitHub accounts older than a
-   minimum age; how old was not verified.
+1. Install the CLI and sign in. It has to be version 0.23 or later: older
+   ones have no `--categories`, which publishing needs (`clawhub -V` prints
+   the version). The login is a device code confirmed in the browser. ClawHub
+   accepts uploads only from GitHub accounts older than a minimum age; how old
+   was not verified.
 
    ```bash
    npm i -g clawhub
@@ -255,7 +263,8 @@ To publish:
    ```
 
 3. Publish from a checkout of the release tag, so that the version on ClawHub
-   and `metadata.version` agree, and dry-run first.
+   and `metadata.version` agree, and dry-run first. The `--source-*` options
+   link the listing to the tag's commit.
    [`.clawhubignore`](../skills/envrelay/.clawhubignore) leaves out Python
    bytecode, which ClawHub refuses. `git switch -` goes back to your branch
    afterwards.
@@ -265,12 +274,17 @@ To publish:
    ```
 
    ```bash
-   clawhub skill publish ./skills/envrelay --owner futrixdev --dry-run
+   clawhub skill publish ./skills/envrelay --owner futrixdev --name EnvRelay --version 1.0.0 --changelog "First release." --categories operations,development --topics backup,restore,migration,dotfiles,developer-environment --source-repo FutrixDev/envrelay-skill --source-commit "$(git rev-parse HEAD)" --source-ref v1.0.0 --source-path skills/envrelay --dry-run
    ```
 
    ```bash
-   clawhub skill publish ./skills/envrelay --owner futrixdev --version 1.0.0
+   clawhub skill publish ./skills/envrelay --owner futrixdev --name EnvRelay --version 1.0.0 --changelog "First release." --categories operations,development --topics backup,restore,migration,dotfiles,developer-environment --source-repo FutrixDev/envrelay-skill --source-commit "$(git rev-parse HEAD)" --source-ref v1.0.0 --source-path skills/envrelay
    ```
+
+   For a later release, change the tag, `--version` and `--changelog`. The
+   upload stays hidden while ClawHub reviews it (`clawhub inspect` shows
+   `pending.publication`). v1.0.0's scan came back clean within a minute; how
+   long publication takes after that was not verified.
 
 4. Check the listing:
 
@@ -284,9 +298,9 @@ To publish:
 
 Every upload is scanned (VirusTotal, ClawScan and static analysis). A scanner
 is most likely to stop at the installer, which downloads a binary: the
-frontmatter's `metadata.openclaw` declares what the skill needs and SKILL.md
-says what the installer does, and the review compares those with the code. If a
-listing is held, read the report:
+frontmatter's top-level `clawdis` block declares what the skill needs (ADR-026)
+and SKILL.md says what the installer does, and the review compares those with
+the code. If a listing is held, read the report:
 
 ```bash
 clawhub scan download envrelay --version 1.0.0
@@ -322,20 +336,30 @@ install with `smithery skill add NAMESPACE/envrelay --agent claude-code`.
 
 A listing in [github/awesome-copilot](https://github.com/github/awesome-copilot)
 puts the plugin in the marketplace that Copilot CLI and VS Code ship with.
+Submit v1.0.1 or later: v1.0.0 has no manifest where they look, and its
+frontmatter fails their lint (ADR-026).
 
 - For a plugin that lives in its own repository, use their external-plugin
   issue form; their CONTRIBUTING.md links it. Do not open a pull request that
   copies the skill into their repository: it would be relicensed MIT there.
 - The form asks for the repository, a release tag with its full 40-character
-  commit SHA, a semver version, the license, the author and keywords. The SHA:
+  commit SHA, a semver version, the license, the author and keywords. The
+  version must be the one in the tag's root `plugin.json`, which is where they
+  find the manifest. The SHA:
 
   ```bash
-  git rev-list -n 1 v1.0.0
+  git rev-list -n 1 v1.0.1
   ```
 
-- They lint the plugin (`vally lint`), test an install with Copilot CLI, and a
-  maintainer approves it. Listings are reviewed again every six months. How a
-  listed entry moves to a newer tag was not verified; see their CONTRIBUTING.md.
+- Their checks run `vally lint` over the whole repository (the manifest names
+  no skills directory), install the plugin with Copilot CLI from a marketplace
+  made on the spot, and check the manifest against the Agent Plugins
+  specification. Then a maintainer approves it. Listings are reviewed again
+  every six months. How a listed entry moves to a newer tag was not verified;
+  see their CONTRIBUTING.md.
+- `vally lint` refuses a SKILL.md `metadata` value that is not a string, which
+  is why ClawHub's declarations sit in a top-level `clawdis` block. Keep them
+  there.
 
 ## 4. Awesome lists
 
@@ -355,7 +379,7 @@ Right after the first release:
 |---|---|---|
 | [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills) | Pull request titled `Add EnvRelay skill`, adding one line in alphabetical order: `- [EnvRelay](https://github.com/FutrixDev/envrelay-skill) - One sentence.` | Keep the alphabetical order |
 | [hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) | The "recommend a resource" issue form on the web. Pull requests and issues opened with `gh` are closed | Written by a person. Eligible 14 days after the repository's first commit (2026-09-25, so from 2026-10-09) with ongoing activity, or at 100 stars. GitHub must detect the license |
-| [github/awesome-copilot](https://github.com/github/awesome-copilot) | The external-plugin form, above | Needs the release tag |
+| [github/awesome-copilot](https://github.com/github/awesome-copilot) | The external-plugin form, above | Needs a release tag, v1.0.1 or later |
 
 Once people use it:
 
@@ -383,7 +407,7 @@ Not these:
 ## 5. Later
 
 - **Gemini CLI's extension gallery.** It needs a `gemini-extension.json` at the
-  repository root (a fourth version to keep in step, which `check-versions.sh`
+  repository root (a fifth version to keep in step, which `check-versions.sh`
   would have to learn) and the `gemini-cli-extension` topic, and how the
   gallery treats release assets that do not follow its
   `{platform}.{arch}.{name}.{ext}` naming was not verified. Gemini CLI already
@@ -409,7 +433,7 @@ Not these:
 
 ## 7. Every release
 
-1. Bump the version in its three places (README, "Releasing"), check the
+1. Bump the version in its four places (README, "Releasing"), check the
    plugin with `claude plugin validate --strict .`, and merge.
 2. **Tag right after the merge.** Until the release is out, a skill installed
    from the default branch asks for a release that does not exist yet, and its

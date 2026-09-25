@@ -94,7 +94,7 @@ and the arm64 Linux runners and the attestations need a public repository too.
   user clicks through; on Linux it prints the distribution's install command
   for the user to run.
 - `--dry-run` downloads and changes nothing, and says what would happen.
-- CI and `tests/installer.sh` install a release that has not been published
+- Before a release is published, CI and `tests/installer.sh` install it
   through `tests/stubs/curl`, a stand-in for curl that serves it in GitHub's
   place (ADR-027).
 

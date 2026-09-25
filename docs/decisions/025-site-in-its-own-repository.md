@@ -3,6 +3,7 @@
 Date: 2026-09-25
 Status: accepted
 Amends: ADR-024 (one command installs the binary and the skill)
+Amended by: ADR-026 (frontmatter and manifests that awesome-copilot accepts)
 
 ## Context
 
@@ -37,8 +38,8 @@ installed pointed at it.
   follows this repository's release workflow. It needs nothing from the site's
   repository: it compares what envrelay.com serves with the release's
   `install.sh`, byte for byte, then installs through the one-liner.
-- **The version is written in three places here**: `Cargo.toml`, SKILL.md's
-  `metadata.version` and `.claude-plugin/plugin.json`, which
+- **The version is written in four places here**: `Cargo.toml`, SKILL.md's
+  `metadata.version`, and the plugin's two manifests since ADR-026, which
   `check-versions.sh` compares. The homepage keeps its `envrelay-version` meta,
   which a maintainer sets in the site's repository once a release is out, and
   deploys.

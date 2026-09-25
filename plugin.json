@@ -1,4 +1,5 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "envrelay",
   "version": "1.0.1",
   "description": "Move a development environment to a new machine: back up dotfiles, credentials, git repositories, AI coding agent state and installed software into one passphrase-encrypted file, then restore it step by step.",

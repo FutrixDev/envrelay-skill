@@ -178,16 +178,16 @@ chmod 644 "$link/install.sh"
 cat >"$link/SKILL.md" <<'EOF'
 ---
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/*)
+clawdis:
+    requires:
+        bins:
+            - python3
 description: Use when backing up or restoring a development environment.
 metadata:
     github-path: skills/envrelay
     github-ref: v9.8.6
     github-repo: https://github.com/FutrixDev/envrelay-skill
     github-tree-sha: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
-    openclaw:
-        requires:
-            bins:
-                - python3
     version: 9.8.6
 name: envrelay
 ---

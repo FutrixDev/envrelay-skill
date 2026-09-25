@@ -229,7 +229,7 @@ sh .github/scripts/check-versions.sh
 
 ## 发版
 
-1. 在 `Cargo.toml`、[`skills/envrelay/SKILL.md`](skills/envrelay/SKILL.md) 的 `metadata.version`、[`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) 三处改成新版本号，再跑一次 `cargo build` 让 `Cargo.lock` 跟上。三处不一致时 CI 会失败。
+1. 在 `Cargo.toml`、[`skills/envrelay/SKILL.md`](skills/envrelay/SKILL.md) 的 `metadata.version`、[`.claude-plugin/plugin.json`](.claude-plugin/plugin.json)、[`plugin.json`](plugin.json) 四处改成新版本号，再跑一次 `cargo build` 让 `Cargo.lock` 跟上。四处不一致时 CI 会失败。
 2. 合并之后，马上给 GitHub 上 main 的合并提交打 tag 并推送（release 出来之前，从 main 装的 skill 会去找一个还不存在的 release），例如：
 
    ```bash

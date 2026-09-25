@@ -4,23 +4,23 @@ description: Use when backing up, restoring, or migrating a development environm
 compatibility: Needs macOS or Linux with a terminal the user can type into, python3 3.9 or newer, git, and the envrelay binary, which the skill's own installer adds once the user agrees.
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/*)
 metadata:
-  version: "1.0.0"
-  openclaw:
-    requires:
-      bins:
-        - python3
-        - git
-    envVars:
-      - name: ENVRELAY_BIN_DIR
-        required: false
-        description: Where install.sh puts the envrelay binary instead of ~/.local/bin.
-      - name: ENVRELAY_DOWNLOAD_URL
-        required: false
-        description: A mirror, or a local directory of release assets, that install.sh downloads from instead of GitHub releases.
-    os:
-      - darwin
-      - linux
-    homepage: https://envrelay.com/
+  version: "1.0.1"
+clawdis:
+  requires:
+    bins:
+      - python3
+      - git
+  envVars:
+    - name: ENVRELAY_BIN_DIR
+      required: false
+      description: Where install.sh puts the envrelay binary instead of ~/.local/bin.
+    - name: ENVRELAY_DOWNLOAD_URL
+      required: false
+      description: A mirror, or a local directory of release assets, that install.sh downloads from instead of GitHub releases.
+  os:
+    - darwin
+    - linux
+  homepage: https://envrelay.com/
 ---
 
 # EnvRelay

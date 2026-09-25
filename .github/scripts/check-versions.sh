@@ -7,8 +7,11 @@
 # (metadata.version in SKILL.md) picks the release its install.sh fetches, so a
 # skill installed from anywhere gets the binary it was written for. The Claude
 # Code plugin's (.claude-plugin/plugin.json) is what /plugin compares to decide
-# whether there is an update. With TAG, the tag must be v<version> as well.
-# envrelay.com names the version too, in its own repository (ADR-025).
+# whether there is an update. plugin.json at the root is the same manifest for
+# Copilot CLI, VS Code and awesome-copilot, in the Agent Plugins format
+# (ADR-026), so it must match the Claude Code one field for field. With TAG, the
+# tag must be v<version> as well. envrelay.com names the version too, in its
+# own repository (ADR-025).
 set -eu
 
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -43,6 +46,21 @@ esac
 
 plugin=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["version"])' .claude-plugin/plugin.json)
 [ "$plugin" = "$version" ] || fail ".claude-plugin/plugin.json has version $plugin, Cargo.toml has $version"
+
+# The Agent Plugins manifest is the Claude Code one plus the $schema that opts
+# it into that format.
+agent=$(python3 - plugin.json .claude-plugin/plugin.json <<'EOF'
+import json, sys
+schema = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+agent, claude = (json.load(open(path)) for path in sys.argv[1:])
+if agent.pop("$schema", None) != schema:
+    print(f'plugin.json must have "$schema": "{schema}"')
+differ = sorted(k for k in agent.keys() | claude.keys() if agent.get(k) != claude.get(k))
+if differ:
+    print("plugin.json and .claude-plugin/plugin.json differ in " + ", ".join(differ))
+EOF
+)
+[ -z "$agent" ] || fail "$agent"
 
 if [ $# -gt 0 ] && [ "$1" != "v$version" ]; then
 	fail "tag $1 does not match Cargo.toml's version: expected v$version"

@@ -225,7 +225,7 @@ sh tests/installer.sh
 sh .github/scripts/check-versions.sh
 ```
 
-`tests/installer.sh` 用当前 checkout 打出来的 release 跑安装器，每个场景一个一次性的 `HOME`，所以要先 build release。`SH=dash sh tests/installer.sh` 换一个 shell 跑安装器；CI 在 sh、dash、bash、zsh 下各跑一遍。`check-versions.sh` 检查所有写了版本号的地方是否一致。
+`tests/installer.sh` 用当前 checkout 打出来的 release 跑安装器，每个场景一个一次性的 `HOME`，所以要先 build release。安装器只从 GitHub 下载，所以由一个替身 curl（[`tests/stubs/curl`](tests/stubs/curl)）代替 GitHub 提供这个 release。`SH=dash sh tests/installer.sh` 换一个 shell 跑安装器；CI 在 sh、dash、bash、zsh 下各跑一遍。`check-versions.sh` 检查所有写了版本号的地方是否一致。
 
 ## 发版
 

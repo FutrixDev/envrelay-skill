@@ -33,7 +33,7 @@ version=$(sed -n 's/^version = "\([^"]*\)"$/\1/p' Cargo.toml | head -n 1)
 # second way: this is the path a user's agent takes.
 home=$(mktemp -d)
 trap 'rm -rf "$home"' EXIT
-plan=$(HOME="$home" ENVRELAY_DOWNLOAD_URL='' ENVRELAY_BIN_DIR='' \
+plan=$(HOME="$home" ENVRELAY_BIN_DIR='' \
 	sh skills/envrelay/install.sh --dry-run --bin-only --no-modify-path 2>&1) || {
 	printf '%s\n' "$plan" >&2
 	exit 1

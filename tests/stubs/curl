@@ -1,0 +1,53 @@
+#!/bin/sh
+# A stand-in for curl, put first on PATH by tests/installer.sh and by the
+# release workflow's verify job. install.sh downloads only from EnvRelay's
+# release on GitHub, which does not exist yet when those run; this serves
+# RELEASE_DIR, a release packaged by .github/scripts/package-release.sh, in its
+# place. It takes only the one way install.sh calls curl, so every install in
+# the tests also checks that each download is held to HTTPS and TLS 1.2 and
+# asks for EnvRelay's release. A file the release lacks gets curl's answer to a
+# 404.
+set -eu
+
+refuse() {
+	printf 'curl (test stand-in): %s\n' "$*" >&2
+	exit 2
+}
+
+[ -d "${RELEASE_DIR:-}" ] || refuse "RELEASE_DIR is not a directory: ${RELEASE_DIR:-unset}"
+proto='' tls=0 out='' url=''
+while [ $# -gt 0 ]; do
+	case $1 in
+	--proto | --retry | -o)
+		[ $# -ge 2 ] || refuse "$1 needs a value"
+		case $1 in
+		--proto) proto=$2 ;;
+		-o) out=$2 ;;
+		esac
+		shift
+		;;
+	--tlsv1.2) tls=1 ;;
+	-fsSL) ;;
+	-*) refuse "unexpected option: $1" ;;
+	*)
+		[ -z "$url" ] || refuse "more than one URL: $url $1"
+		url=$1
+		;;
+	esac
+	shift
+done
+[ "$proto" = =https ] || refuse "not held to HTTPS: $url"
+[ "$tls" = 1 ] || refuse "not held to TLS 1.2: $url"
+[ -n "$out" ] || refuse "no -o FILE: $url"
+releases=https://github.com/FutrixDev/envrelay-skill/releases
+case $url in
+"$releases"/latest/download/* | "$releases"/download/v*/*) ;;
+*) refuse "not a download from EnvRelay's release on GitHub: $url" ;;
+esac
+
+file=$RELEASE_DIR/${url##*/}
+if [ ! -f "$file" ]; then
+	echo 'curl: (22) The requested URL returned error: 404' >&2
+	exit 22
+fi
+cp "$file" "$out"

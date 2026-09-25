@@ -283,9 +283,10 @@ To publish:
 
    For a later release, change the tag (in `git checkout` and `--source-ref`),
    `--version` and `--changelog`. The upload stays hidden while ClawHub
-   reviews it (`clawhub inspect` shows `pending.publication`). v1.0.0's scan
-   came back clean within a minute; how long publication takes after that was
-   not verified.
+   reviews it: for v1.0.0, `clawhub inspect` gave the moderation reason as
+   `pending.publication`; for v1.0.2, `inspect --version 1.0.2` answered
+   "Version not found" and `latest` stayed at 1.0.1. v1.0.2 was audited and
+   public within seven minutes of the upload.
 
 4. Check the listing, then the version's security audit. They are separate
    verdicts: moderation decides whether the listing is public, and it can be
@@ -301,8 +302,9 @@ To publish:
    ```
 
    The audit is `version.security`. v1.0.0 and v1.0.1 read `suspicious`,
-   shown as Review, for the download override that ADR-027 removed. The
-   findings are on
+   shown as Review, for the download override that ADR-027 removed; v1.0.2
+   reads `clean`, shown as Pass. The latest version's audit, with any
+   findings, is on
    <https://clawhub.ai/futrixdev/skills/envrelay/security-audit>.
 
    ```bash

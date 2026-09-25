@@ -225,7 +225,7 @@ sh tests/installer.sh
 sh .github/scripts/check-versions.sh
 ```
 
-`tests/installer.sh` runs the installer against a release packaged from this checkout, with a throwaway `HOME` per scenario, so it needs the release build first. `SH=dash sh tests/installer.sh` runs the installer under another shell; CI runs it under sh, dash, bash and zsh. `check-versions.sh` checks that the version is the same everywhere it is written.
+`tests/installer.sh` runs the installer against a release packaged from this checkout, with a throwaway `HOME` per scenario, so it needs the release build first. The installer downloads only from GitHub, so a stand-in for curl, [`tests/stubs/curl`](tests/stubs/curl), serves that release in GitHub's place. `SH=dash sh tests/installer.sh` runs the installer under another shell; CI runs it under sh, dash, bash and zsh. `check-versions.sh` checks that the version is the same everywhere it is written.
 
 ## Releasing
 

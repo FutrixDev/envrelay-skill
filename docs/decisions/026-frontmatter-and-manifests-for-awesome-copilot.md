@@ -4,6 +4,8 @@ Date: 2026-09-25
 Status: accepted
 Amends: ADR-024 (one command installs the binary and the skill), ADR-025 (the
 site moves to a repository of its own)
+Amended by: ADR-027 (the installer downloads only from EnvRelay's release on
+GitHub)
 
 ## Context
 
@@ -49,8 +51,8 @@ No one frontmatter satisfies all of these.
 ## Decision
 
 - **The declarations move to a top-level `clawdis` block**, unchanged: the
-  required binaries, the operating systems, the two optional environment
-  variables and the homepage. `metadata` keeps only `version`.
+  required binaries, the operating systems, the optional environment variables
+  (one since ADR-027) and the homepage. `metadata` keeps only `version`.
 - **`plugin.json` at the root is the plugin's Agent Plugins manifest**: the
   Claude Code one plus the `$schema` that opts into Agent Plugins 1.0. Copilot
   CLI and VS Code read it with that format's semantics, and it is where

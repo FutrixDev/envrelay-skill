@@ -141,8 +141,8 @@ works as soon as the repository is public, and the README lists it.
   `chat.plugins.marketplaces` setting. Factory Droid falls back to
   `.claude-plugin/marketplace.json` as well (its commands were not checked).
 
-Validate before every release; it passes with no errors or warnings as of
-v1.0.1:
+Validate before every release, and release only when it reports no errors or
+warnings:
 
 ```bash
 claude plugin validate --strict .
@@ -281,16 +281,29 @@ To publish:
    clawhub skill publish ./skills/envrelay --owner futrixdev --name EnvRelay --version 1.0.0 --changelog "First release." --categories operations,development --topics backup,restore,migration,dotfiles,developer-environment --source-repo FutrixDev/envrelay-skill --source-commit "$(git rev-parse HEAD)" --source-ref v1.0.0 --source-path skills/envrelay
    ```
 
-   For a later release, change the tag, `--version` and `--changelog`. The
-   upload stays hidden while ClawHub reviews it (`clawhub inspect` shows
-   `pending.publication`). v1.0.0's scan came back clean within a minute; how
-   long publication takes after that was not verified.
+   For a later release, change the tag (in `git checkout` and `--source-ref`),
+   `--version` and `--changelog`. The upload stays hidden while ClawHub
+   reviews it (`clawhub inspect` shows `pending.publication`). v1.0.0's scan
+   came back clean within a minute; how long publication takes after that was
+   not verified.
 
-4. Check the listing:
+4. Check the listing, then the version's security audit. They are separate
+   verdicts: moderation decides whether the listing is public, and it can be
+   public (`clean`) while the audit on its page says Review, which asks users
+   to read the findings before they install.
 
    ```bash
    clawhub inspect @futrixdev/envrelay
    ```
+
+   ```bash
+   clawhub inspect @futrixdev/envrelay --version 1.0.0 --json
+   ```
+
+   The audit is `version.security`. v1.0.0 and v1.0.1 read `suspicious`,
+   shown as Review, for the download override that ADR-027 removed. The
+   findings are on
+   <https://clawhub.ai/futrixdev/skills/envrelay/security-audit>.
 
    ```bash
    openclaw skills verify @futrixdev/envrelay

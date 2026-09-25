@@ -119,7 +119,9 @@ jobs:
           if-no-files-found: error
 
   # Install from the packaged release, as a user would, before anything is
-  # published.
+  # published. install.sh downloads only from the release on GitHub, which
+  # does not exist yet: tests/stubs/curl, first on PATH, serves dist in its
+  # place.
   verify:
     name: verify ${{ matrix.os }}
     needs: package
@@ -130,6 +132,7 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, ubuntu-24.04-arm]
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: dist
@@ -138,7 +141,8 @@ jobs:
         run: |
           home="$RUNNER_TEMP/home"
           mkdir "$home"
-          HOME="$home" SHELL=/bin/bash ENVRELAY_DOWNLOAD_URL="$PWD/dist" sh dist/install.sh
+          HOME="$home" SHELL=/bin/bash PATH="$PWD/tests/stubs:$PATH" RELEASE_DIR="$PWD/dist" \
+            sh dist/install.sh
           "$home/.local/bin/envrelay" --version
           test -f "$home/.agents/skills/envrelay/SKILL.md"
           test -L "$home/.claude/skills/envrelay"

@@ -4,7 +4,8 @@ Date: 2026-09-24
 Status: accepted
 Extends: ADR-022 (deterministic mechanics scripts)
 Amended by: ADR-025 (the site moves to a repository of its own), ADR-026
-(frontmatter and manifests that awesome-copilot accepts)
+(frontmatter and manifests that awesome-copilot accepts), ADR-027 (the
+installer downloads only from EnvRelay's release on GitHub)
 
 ## Context
 
@@ -67,9 +68,11 @@ and the arm64 Linux runners and the attestations need a public repository too.
 - **No sudo, ever.** It refuses to run under sudo and installs into the home
   directory: the binary into `~/.local/bin` (or `--bin-dir`,
   `ENVRELAY_BIN_DIR`), the skill into `~/.agents/skills/envrelay`.
-- **Everything is downloaded and checked before anything changes.** Each file
-  must match `SHA256SUMS`; curl is held to HTTPS and TLS 1.2. The new binary is
-  run once from where it will live, since `/tmp` is noexec on some systems.
+- **Everything is downloaded and checked before anything changes**, and only
+  from this repository's release on GitHub, which nothing can point elsewhere
+  (ADR-027). Each file must match `SHA256SUMS`; curl is held to HTTPS and TLS
+  1.2. The new binary is run once from where it will live, since `/tmp` is
+  noexec on some systems.
 - **One real copy of the skill, links for the rest.** `~/.agents/skills` is
   read by Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode, OpenClaw and
   most other agents. Claude Code gets a symlink in
@@ -91,9 +94,9 @@ and the arm64 Linux runners and the attestations need a public repository too.
   user clicks through; on Linux it prints the distribution's install command
   for the user to run.
 - `--dry-run` downloads and changes nothing, and says what would happen.
-  `ENVRELAY_DOWNLOAD_URL` swaps the GitHub release for a mirror or a local
-  directory, which is how CI and `tests/installer.sh` install a release that
-  has not been published.
+- CI and `tests/installer.sh` install a release that has not been published
+  through `tests/stubs/curl`, a stand-in for curl that serves it in GitHub's
+  place (ADR-027).
 
 **The installer is the one exception to ADR-022's "a script never installs".**
 It lives at the skill's root, not in `scripts/`, and SKILL.md says it is not
@@ -128,13 +131,13 @@ the latest release.
   scripts and nothing else. The installer and `envrelay` stay behind a prompt.
 - `compatibility` names what the skill needs to run.
 - A top-level `clawdis` block declares the required binaries (python3, git),
-  the operating systems (darwin, linux), the two optional environment
-  variables the installer reads, and the homepage, and ClawHub's review
-  compares them with what the code does. v1.0.0 had them in
-  `metadata.openclaw`, where OpenClaw itself also read them to decide whether
-  the skill can load. They moved because awesome-copilot's lint refuses a
-  `metadata` value that is not a string. OpenClaw does not read the new block
-  (ADR-026).
+  the operating systems (darwin, linux), the one optional environment variable
+  the installer reads (`ENVRELAY_BIN_DIR`; two before ADR-027), and the
+  homepage, and ClawHub's review compares them with what the code does. v1.0.0
+  had them in `metadata.openclaw`, where OpenClaw itself also read them to
+  decide whether the skill can load. They moved because awesome-copilot's lint
+  refuses a `metadata` value that is not a string. OpenClaw does not read the
+  new block (ADR-026).
 - There is no `license` field. ClawHub releases every skill it publishes under
   MIT-0 and asks for no conflicting license terms in SKILL.md, so the field
   would be wrong there. The repository's MIT OR Apache-2.0 covers the source,

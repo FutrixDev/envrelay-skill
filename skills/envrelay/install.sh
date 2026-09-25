@@ -9,7 +9,8 @@
 # In order, it:
 #
 #   1. downloads SHA256SUMS, the envrelay binary for this machine and the skill
-#      from one release, and refuses any file whose checksum does not match;
+#      from one release on GitHub, over HTTPS, and refuses any file whose
+#      checksum does not match;
 #   2. puts envrelay in ~/.local/bin (or --bin-dir), replacing it atomically;
 #   3. puts the skill in ~/.agents/skills/envrelay, which Codex, Cursor, Gemini
 #      CLI, OpenCode, Copilot and most other agents read, and symlinks it into
@@ -54,9 +55,8 @@ Options:
   -h, --help         show this help
 
 Run from inside an installed skill (sh <skill dir>/install.sh), it installs the
-release that matches that skill's version rather than the latest one.
-ENVRELAY_DOWNLOAD_URL replaces the GitHub release URL with a mirror, or with a
-local directory holding the release assets.
+release that matches that skill's version rather than the latest one. Every
+download comes from https://github.com/FutrixDev/envrelay-skill/releases.
 EOF
 }
 
@@ -220,22 +220,13 @@ unlink_one() {
 }
 
 fetch() {
-	case $1 in
-	https://* | http://*)
-		if have curl; then
-			case $1 in
-			https://*) curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$2" "$1" ;;
-			*) curl -fsSL --retry 3 -o "$2" "$1" ;;
-			esac
-		elif have wget; then
-			wget -q -O "$2" "$1"
-		else
-			die "downloading EnvRelay needs curl or wget"
-		fi
-		;;
-	file://*) cp "${1#file://}" "$2" ;;
-	*) cp "$1" "$2" ;;
-	esac || die "could not download $1 (is there a published release? --version picks one)"
+	if have curl; then
+		curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$2" "$1"
+	elif have wget; then
+		wget -q -O "$2" "$1"
+	else
+		die "downloading EnvRelay needs curl or wget"
+	fi || die "could not download $1 (is there a published release? --version picks one)"
 }
 
 verify() {
@@ -526,14 +517,12 @@ main() {
 	fi
 
 	detect_platform
-	[ -n "$version" ] || [ -n "${ENVRELAY_DOWNLOAD_URL:-}" ] || version=$(skill_version)
+	[ -n "$version" ] || version=$(skill_version)
 	version=${version#v}
 	case $version in
 	*[!0-9A-Za-z.+-]*) die "not a version: $version" ;;
 	esac
-	if [ -n "${ENVRELAY_DOWNLOAD_URL:-}" ]; then
-		base=${ENVRELAY_DOWNLOAD_URL%/}
-	elif [ -n "$version" ]; then
+	if [ -n "$version" ]; then
 		base=https://github.com/$REPO/releases/download/v$version
 	else
 		base=https://github.com/$REPO/releases/latest/download

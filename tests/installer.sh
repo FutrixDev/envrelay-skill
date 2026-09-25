@@ -1,7 +1,9 @@
 #!/bin/sh
 # End-to-end tests for skills/envrelay/install.sh. The release it installs is
 # packaged on the spot by .github/scripts/package-release.sh, the same script
-# the release workflow runs, and every scenario gets a throwaway HOME.
+# the release workflow runs, and every scenario gets a throwaway HOME. The
+# installer downloads only from EnvRelay's release on GitHub: tests/stubs/curl,
+# first on its PATH, serves the packaged release in GitHub's place.
 #
 #   tests/installer.sh [BINARY]          BINARY: target/release/envrelay
 #   SH=dash tests/installer.sh           run the installer under another shell
@@ -51,7 +53,7 @@ scenario() {
 	link=$h/.claude/skills/envrelay
 	out=$work/$1.out
 	: >"$out"
-	url=$work/release
+	release=$work/release
 	test_path=/usr/bin:/bin
 	test_shell=/bin/zsh
 }
@@ -60,8 +62,8 @@ scenario() {
 # lacks ~/.local/bin. Sets $status; the output is in $out.
 run_installer() {
 	set +e
-	env HOME="$h" SHELL="$test_shell" PATH="$test_path" ZDOTDIR= XDG_CONFIG_HOME= \
-		CLAUDE_CONFIG_DIR= ENVRELAY_BIN_DIR= SUDO_USER= ENVRELAY_DOWNLOAD_URL="$url" \
+	env HOME="$h" SHELL="$test_shell" PATH="$root/tests/stubs:$test_path" ZDOTDIR= XDG_CONFIG_HOME= \
+		CLAUDE_CONFIG_DIR= ENVRELAY_BIN_DIR= SUDO_USER= RELEASE_DIR="$release" \
 		"$SH" "${installer:-$work/release/install.sh}" "$@" >"$out" 2>&1
 	status=$?
 	set -e
@@ -72,8 +74,8 @@ run_piped() {
 	script=$1
 	shift
 	set +e
-	env HOME="$h" SHELL="$test_shell" PATH="$test_path" ZDOTDIR= XDG_CONFIG_HOME= \
-		CLAUDE_CONFIG_DIR= ENVRELAY_BIN_DIR= SUDO_USER= ENVRELAY_DOWNLOAD_URL="$url" \
+	env HOME="$h" SHELL="$test_shell" PATH="$root/tests/stubs:$test_path" ZDOTDIR= XDG_CONFIG_HOME= \
+		CLAUDE_CONFIG_DIR= ENVRELAY_BIN_DIR= SUDO_USER= RELEASE_DIR="$release" \
 		"$SH" -s -- "$@" <"$script" >"$out" 2>&1
 	status=$?
 	set -e
@@ -116,7 +118,6 @@ check "replaces the whole skill" absent "$skill/scripts/gone_in_this_release.py"
 check "leaves no staging behind after an upgrade" no_leftovers
 
 # Inside an installed skill it asks for the release that matches the skill.
-url=
 installer=$skill/install.sh
 run_installer --dry-run --bin-only
 check "asks for the skill's own release" said "/releases/download/v${version#envrelay }"
@@ -192,7 +193,6 @@ metadata:
 name: envrelay
 ---
 EOF
-url=
 installer=$link/install.sh
 run_installer --dry-run --bin-only
 check "exits 0" status_is 0
@@ -249,6 +249,7 @@ run_installer --dry-run
 check "exits 0" status_is 0
 check "changes nothing" home_empty
 check "says it is a dry run" said "Dry run"
+check "downloads from the latest release on GitHub" said "from https://github.com/FutrixDev/envrelay-skill/releases/latest/download"
 check "shows where the skill would go" said "would install the skill in $skill"
 check "shows the link it would make" said "would link $link"
 check "shows the PATH change" said "would add $h/.local/bin to PATH in $h/.zshrc"
@@ -280,7 +281,7 @@ check "keeps a skill another tool installed" [ "$(cat "$skill/SKILL.md")" = thei
 scenario tampered-binary
 cp -R "$work/release" "$work/tampered-binary.release"
 for f in "$work/tampered-binary.release"/envrelay-*-*.tar.gz; do printf x >>"$f"; done
-url=$work/tampered-binary.release
+release=$work/tampered-binary.release
 run_installer
 check "fails" failed_run
 check "names the mismatch" said "does not match SHA256SUMS"
@@ -289,9 +290,18 @@ check "installs nothing" home_empty
 scenario tampered-skill
 cp -R "$work/release" "$work/tampered-skill.release"
 printf x >>"$work/tampered-skill.release/envrelay-skill.tar.gz"
-url=$work/tampered-skill.release
+release=$work/tampered-skill.release
 run_installer
 check "fails" failed_run
+check "installs nothing, not even the binary" home_empty
+
+scenario missing-asset
+cp -R "$work/release" "$work/missing-asset.release"
+rm "$work/missing-asset.release/envrelay-skill.tar.gz"
+release=$work/missing-asset.release
+run_installer
+check "fails" failed_run
+check "names the download" said "could not download https://github.com/FutrixDev/envrelay-skill/releases/latest/download/envrelay-skill.tar.gz"
 check "installs nothing, not even the binary" home_empty
 
 scenario truncated

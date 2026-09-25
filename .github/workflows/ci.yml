@@ -70,6 +70,6 @@ jobs:
       - name: shellcheck
         run: |
           shellcheck --version
-          shellcheck skills/envrelay/install.sh .github/scripts/*.sh tests/installer.sh
+          shellcheck skills/envrelay/install.sh .github/scripts/*.sh tests/installer.sh tests/stubs/curl
       - name: The versions agree
         run: sh .github/scripts/check-versions.sh

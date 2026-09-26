@@ -274,11 +274,11 @@ To publish:
    ```
 
    ```bash
-   clawhub skill publish ./skills/envrelay --owner futrixdev --name EnvRelay --version 1.0.0 --changelog "First release." --categories operations,development --topics backup,restore,migration,dotfiles,developer-environment --source-repo FutrixDev/envrelay-skill --source-commit "$(git rev-parse HEAD)" --source-ref v1.0.0 --source-path skills/envrelay --dry-run
+   clawhub skill publish ./skills/envrelay --owner futrixdev --name "EnvRelay: Backup, Restore & Migrate Dev Environments" --version 1.0.0 --changelog "First release." --categories operations,development,productivity --topics backup,migration,dotfiles,developer-environment,new-machine-setup --source-repo FutrixDev/envrelay-skill --source-commit "$(git rev-parse HEAD)" --source-ref v1.0.0 --source-path skills/envrelay --dry-run
    ```
 
    ```bash
-   clawhub skill publish ./skills/envrelay --owner futrixdev --name EnvRelay --version 1.0.0 --changelog "First release." --categories operations,development --topics backup,restore,migration,dotfiles,developer-environment --source-repo FutrixDev/envrelay-skill --source-commit "$(git rev-parse HEAD)" --source-ref v1.0.0 --source-path skills/envrelay
+   clawhub skill publish ./skills/envrelay --owner futrixdev --name "EnvRelay: Backup, Restore & Migrate Dev Environments" --version 1.0.0 --changelog "First release." --categories operations,development,productivity --topics backup,migration,dotfiles,developer-environment,new-machine-setup --source-repo FutrixDev/envrelay-skill --source-commit "$(git rev-parse HEAD)" --source-ref v1.0.0 --source-path skills/envrelay
    ```
 
    For a later release, change the tag (in `git checkout` and `--source-ref`),
@@ -287,6 +287,17 @@ To publish:
    `pending.publication`; for v1.0.2, `inspect --version 1.0.2` answered
    "Version not found" and `latest` stayed at 1.0.1. v1.0.2 was audited and
    public within seven minutes of the upload.
+
+   ClawHub's search ranks by the name, categories and topics, which only a
+   new version can change. A query ranks a skill highest when every word is a
+   word of its slug or name, then when every word begins a word of the name,
+   then when every word begins a category or topic, and only then when every
+   word begins a word of the summary (SKILL.md's `description`). Matching is
+   by prefix, not by stem: "migrating" does not find "migrate". Within a rank,
+   closeness in meaning comes first, then installs. So the name carries
+   backup, restore and migrate, and the topics carry what people type that the
+   name does not. ClawHub takes at most five topics, and at most three
+   categories from its own list.
 
 4. Check the listing, then the version's security audit. They are separate
    verdicts: moderation decides whether the listing is public, and it can be
@@ -302,10 +313,15 @@ To publish:
    ```
 
    The audit is `version.security`. v1.0.0 and v1.0.1 read `suspicious`,
-   shown as Review, for the download override that ADR-027 removed; v1.0.2
-   reads `clean`, shown as Pass. The latest version's audit, with any
-   findings, is on
-   <https://clawhub.ai/futrixdev/skills/envrelay/security-audit>.
+   shown as Review, for the download override that ADR-027 removed. v1.0.2
+   first read `clean`, shown as Pass; a re-scan on 2026-09-25 at 15:43 UTC
+   moved it to Review, for the git config that ADR-028 switches off. A
+   verdict can change after publishing, so check it again before calling a
+   release clean. The latest version's audit, with any findings, is on
+   <https://clawhub.ai/futrixdev/skills/envrelay/security-audit>. Most of its
+   static findings are the skill's subject, not a flaw in it: it names
+   credential and agent-state paths because it backs them up, and `install.sh`
+   downloads a binary because that is how it installs one.
 
    ```bash
    openclaw skills verify @futrixdev/envrelay

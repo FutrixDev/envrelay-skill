@@ -16,7 +16,7 @@
 #      CLI, OpenCode, Copilot and most other agents read, and symlinks it into
 #      ~/.claude/skills (and ~/.kiro/skills, ~/.cline/skills when present);
 #   4. adds the bin directory to PATH in your shell's rc file if it is missing;
-#   5. checks for python3 3.9+ and git, which the skill's scripts use.
+#   5. checks for python3 3.9+ and git 2.31+, which the skill's scripts use.
 #
 # It never uses sudo, never touches a backup, and never replaces a skill
 # directory or link it did not create. Why it exists, and why it is not one of
@@ -395,7 +395,12 @@ check_tools() {
 	elif ! PYTHONDONTWRITEBYTECODE=1 python3 -c 'import sys; sys.exit(sys.version_info < (3, 9))' </dev/null >/dev/null 2>&1; then
 		missing="python3 3.9 or newer (this one is $(python3 --version 2>&1 </dev/null))"
 	fi
-	have git || missing="${missing:+$missing and }git"
+	if ! have git; then
+		missing="${missing:+$missing and }git"
+	elif ! git --version </dev/null 2>/dev/null | awk '{ split($3, v, "."); ok = v[1] + 0 > 2 || (v[1] + 0 == 2 && v[2] + 0 >= 31) } END { exit !ok }'; then
+		# git_classify.py hands git its settings in GIT_CONFIG_COUNT (ADR-028).
+		missing="${missing:+$missing and }git 2.31 or newer (this one is $(git --version 2>&1 </dev/null))"
+	fi
 	if [ -z "$missing" ]; then
 		[ "$dry_run" = 0 ] || say "    python3 and git are present"
 		return

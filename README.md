@@ -28,7 +28,7 @@ No sudo. envrelay.com sends you to the installer in the [latest release](https:/
 
 - puts `envrelay` in `~/.local/bin`, and adds that directory to `PATH` in your shell's rc file if it is not there yet;
 - puts the skill in `~/.agents/skills/envrelay`, where Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode and most other agents look for skills, and links it into `~/.claude/skills` for Claude Code (and into `~/.kiro/skills` and `~/.cline/skills` if you use Kiro or Cline);
-- checks for python3 3.9+ and git, which the skill's scripts use.
+- checks for python3 3.9+ and git 2.31+, which the skill's scripts use.
 
 Then start a new session of your coding agent and say:
 
@@ -62,7 +62,7 @@ Each download of `install.sh` from envrelay.com is recorded: the time, the IP ad
 ### What it needs
 
 - **macOS 11 or later, or Linux**, on x86_64 or arm64. The Linux binaries are static, so any distribution works. On Windows, use WSL.
-- **python3 3.9+ and git**, for the skill's scripts. A Mac gets both from Apple's Command Line Tools: if they are missing, the installer opens Apple's installer and you click Install. On Linux, it tells you the package-manager command to run.
+- **python3 3.9+ and git 2.31+**, for the skill's scripts. A Mac gets both from Apple's Command Line Tools: if they are missing, the installer opens Apple's installer and you click Install. On Linux, it tells you the package-manager command to run.
 - **A coding agent that reads Agent Skills**: Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode and many more.
 
 That is all. The package managers you already use (Homebrew, npm, cargo and so on) matter only when you want the agent to reinstall your software on the new machine, and `age` and `zstd` only for the [escape hatch](#the-escape-hatch).
@@ -222,10 +222,11 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 cargo build --release
 sh tests/installer.sh
+python3 tests/git_classify.py
 sh .github/scripts/check-versions.sh
 ```
 
-`tests/installer.sh` runs the installer against a release packaged from this checkout, with a throwaway `HOME` per scenario, so it needs the release build first. The installer downloads only from GitHub, so a stand-in for curl, [`tests/stubs/curl`](tests/stubs/curl), serves that release in GitHub's place. `SH=dash sh tests/installer.sh` runs the installer under another shell; CI runs it under sh, dash, bash and zsh. `check-versions.sh` checks that the version is the same everywhere it is written.
+`tests/installer.sh` runs the installer against a release packaged from this checkout, with a throwaway `HOME` per scenario, so it needs the release build first. The installer downloads only from GitHub, so a stand-in for curl, [`tests/stubs/curl`](tests/stubs/curl), serves that release in GitHub's place. `SH=dash sh tests/installer.sh` runs the installer under another shell; CI runs it under sh, dash, bash and zsh. `tests/git_classify.py` checks that the repository inventory starts none of the programs a scanned repository's git config names. `check-versions.sh` checks that the version is the same everywhere it is written.
 
 ## Releasing
 

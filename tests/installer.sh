@@ -254,6 +254,15 @@ check "shows where the skill would go" said "would install the skill in $skill"
 check "shows the link it would make" said "would link $link"
 check "shows the PATH change" said "would add $h/.local/bin to PATH in $h/.zshrc"
 
+scenario old-git
+mkdir "$work/old-git.bin"
+printf '#!/bin/sh\necho "git version 2.30.1 (Apple Git-130)"\n' >"$work/old-git.bin/git"
+chmod +x "$work/old-git.bin/git"
+test_path=$work/old-git.bin:$test_path
+run_installer
+check "exits 0" status_is 0
+check "names the git the scripts need" said "need git 2.31 or newer (this one is git version 2.30.1 (Apple Git-130))"
+
 scenario uninstall
 mkdir -p "$h/.kiro" "$h/.cline/skills" "$h/elsewhere"
 ln -s "$h/elsewhere" "$h/.cline/skills/envrelay"

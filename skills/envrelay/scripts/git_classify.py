@@ -17,14 +17,17 @@ For functional repositories it also reports remotes, branch, head, and the
 three counts that decide the backup strategy: uncommitted, unpushed, stashes.
 
 The scan prunes inside every repository it finds (the outer repo carries the
-inner ones) and inside cache directories. Every git command here is
-read-only; choosing a strategy from these facts is the skill's job, not this
-script's.
+inner ones) and inside cache directories. No git command here writes to a
+repository, and none lets the repository's own config start a program: see
+REPO_HELPERS_OFF. Choosing a strategy from these facts is the skill's job,
+not this script's.
 """
 
 import argparse
+import functools
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -35,6 +38,28 @@ DEFAULT_PRUNE = {
 }
 
 
+# A .git directory the scan finds is data, not something the user chose to
+# trust, and its config can name commands for git to run during the reads
+# below. These settings switch those off for every git command here:
+REPO_HELPERS_OFF = (
+    # status and ls-files ask the fsmonitor. Empty rather than false: before
+    # git 2.36 the value is a command, and "false" would run false(1).
+    ("core.fsmonitor", ""),
+    # No command here runs a hook; this keeps it that way.
+    ("core.hooksPath", "/dev/null"),
+    # stash list runs git log, which with this on hands each signed stash to
+    # gpg.program.
+    ("log.showSignature", "false"),
+)
+# ...and status pipes changed files through their filter driver, which
+# repo_filter_drivers() finds and FILTER_OFF switches off.
+FILTER_OFF = (("clean", ""), ("smudge", ""), ("process", ""), ("required", "false"))
+
+# Config scopes the user wrote. A filter driver defined in one of these keeps
+# running: git lfs installs itself in the global config.
+USER_SCOPES = {"system", "global", "command"}
+
+
 class GitError(Exception):
     pass
 
@@ -43,7 +68,15 @@ class GitUnavailable(Exception):
     pass
 
 
-def git(repo, *argv, timeout):
+def git(repo, *argv, timeout, config=REPO_HELPERS_OFF):
+    # GIT_CONFIG_* rather than -c: -c splits at the first "=", and a filter
+    # driver's name may contain one. Appended after any the user set.
+    env = {**os.environ, "LC_ALL": "C", "GIT_OPTIONAL_LOCKS": "0"}
+    first = int(env.get("GIT_CONFIG_COUNT") or 0)
+    for index, (key, value) in enumerate(config, start=first):
+        env[f"GIT_CONFIG_KEY_{index}"] = key
+        env[f"GIT_CONFIG_VALUE_{index}"] = value
+    env["GIT_CONFIG_COUNT"] = str(first + len(config))
     try:
         done = subprocess.run(
             ["git", "-C", repo, *argv],
@@ -51,7 +84,7 @@ def git(repo, *argv, timeout):
             text=True,
             timeout=timeout,
             stdin=subprocess.DEVNULL,
-            env={**os.environ, "LC_ALL": "C", "GIT_OPTIONAL_LOCKS": "0"},
+            env=env,
         )
     except FileNotFoundError:
         raise GitUnavailable("git is not installed")
@@ -62,6 +95,48 @@ def git(repo, *argv, timeout):
     return done.stdout
 
 
+@functools.lru_cache(maxsize=None)
+def require_git_2_31(timeout):
+    """git() hands its settings over in GIT_CONFIG_COUNT, which git 2.31 added."""
+    out = git(os.curdir, "version", timeout=timeout).strip()
+    found = re.match(r"git version (\d+)\.(\d+)", out)
+    if not found or (int(found.group(1)), int(found.group(2))) < (2, 31):
+        raise GitUnavailable(f"{out}: git 2.31 or newer is needed")
+
+
+def repo_filter_drivers(repo, timeout, seen=None):
+    """Names of the filter drivers only the repository's config defines.
+
+    Its checked-out submodules' too: git status runs one in each of them, and
+    the settings reach it through the environment. A file one of these drivers
+    would have cleaned can then count as uncommitted, which errs towards
+    carrying it.
+    """
+    seen = set() if seen is None else seen
+    seen.add(os.path.realpath(repo))
+    listing = git(repo, "config", "--list", "--show-scope", "--name-only", "-z", timeout=timeout)
+    fields = listing.split("\0")
+    drivers = {
+        key[len("filter."):].rpartition(".")[0]
+        for scope, key in zip(fields[0::2], fields[1::2])
+        if scope not in USER_SCOPES and key.startswith("filter.") and key.count(".") >= 2
+    }
+    gitlinks = {
+        entry.partition("\t")[2]
+        for entry in git(repo, "ls-files", "--stage", "-z", timeout=timeout).split("\0")
+        if entry.startswith("160000 ")
+    }
+    for gitlink in sorted(gitlinks):
+        sub = os.path.join(repo, gitlink)
+        if os.path.realpath(sub) in seen or not os.path.lexists(os.path.join(sub, ".git")):
+            continue
+        try:
+            drivers |= repo_filter_drivers(sub, timeout, seen)
+        except GitError as error:
+            raise GitError(f"submodule {gitlink}: {error}")
+    return drivers
+
+
 def classify(path, timeout):
     report = {"path": path}
     if not os.path.lexists(os.path.join(path, ".git")):
@@ -69,8 +144,14 @@ def classify(path, timeout):
         return report
 
     try:
+        require_git_2_31(timeout)
         git(path, "rev-parse", "--git-dir", timeout=timeout)
-        status = git(path, "status", "--porcelain", timeout=timeout)
+        filters_off = tuple(
+            (f"filter.{driver}.{key}", value)
+            for driver in sorted(repo_filter_drivers(path, timeout))
+            for key, value in FILTER_OFF
+        )
+        status = git(path, "status", "--porcelain", timeout=timeout, config=REPO_HELPERS_OFF + filters_off)
     except GitUnavailable as error:
         report["state"] = "unknown"
         report["detail"] = str(error)

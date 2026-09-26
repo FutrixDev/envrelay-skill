@@ -23,6 +23,15 @@ python3 scripts/git_classify.py ~/dev/api ~/dev/site
 It prints one JSON object with a `repos` array. The script only reports facts;
 choosing a strategy from those facts is yours and the user's.
 
+Nobody has vetted a repository the scan finds, and its `.git/config` can name
+programs for git to start — an fsmonitor, a filter driver, a signature
+checker. The script switches those off for its own git commands, which is one
+more reason to run it rather than `git status` by hand. A filter driver only
+the repository defines is switched off too (one the user installed, like git
+lfs, keeps working), so files it would have cleaned can count as uncommitted —
+which errs towards carrying the repository. This needs git 2.31 or newer; with
+an older git every repository comes back `unknown`.
+
 The scan prunes inside every repository it finds, so nested repositories
 (submodules, vendored checkouts) do not show up separately — the outer one
 carries the inner ones as files. It also prunes the standard cache directories
@@ -41,7 +50,7 @@ arises for the first two:
 | `partial-repository` | git recognises it, but HEAD has no commit — a fresh `git init`, or a checkout that never finished | If the working tree has content, carry it with `"strategy": "files"`; an empty one is not worth carrying, but say so |
 | `invalid-head` | `.git` exists but git errors on it — corrupt or interrupted | Never `clone`-strategise it: the metadata cannot be trusted. Carry it whole with `files` and tell the user it needs `git fsck` on arrival, or let them repair it first. Prefer repair over delete-and-reclone when the repo is large |
 | `ordinary-directory` | No `.git` at all | Not a repo. It belongs in `files`, not `git_repos` |
-| `unknown` | git missing, or the command timed out | Report it; do not guess |
+| `unknown` | git missing or older than 2.31, or a command timed out | Report it; do not guess |
 
 The script's per-repo output for functional repos includes `remotes`, `branch`,
 `head`, and the three counts that decide everything: `uncommitted`, `unpushed`,

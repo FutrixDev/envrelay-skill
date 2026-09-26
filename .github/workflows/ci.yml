@@ -61,6 +61,8 @@ jobs:
         with:
           python-version: "3.9"
       - run: python3 -m compileall -q skills/envrelay/scripts
+      # git_classify.py must run nothing a scanned repository's config names.
+      - run: python3 tests/git_classify.py -v
 
   scripts:
     runs-on: ubuntu-latest

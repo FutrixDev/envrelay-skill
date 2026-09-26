@@ -1,10 +1,10 @@
 ---
 name: envrelay
-description: Use when backing up, restoring, or migrating a development environment between machines - dotfiles, config, SSH/cloud credentials, git repositories, AI coding agent state (Claude Code, Codex, Cursor and the rest), and installed software - or when working with an .envrelay backup file. Covers what to carry, what to leave behind and rebuild, how to record it in a manifest, and how to replay it on the new machine (macOS and Linux).
-compatibility: Needs macOS or Linux with a terminal the user can type into, python3 3.9 or newer, git, and the envrelay binary, which the skill's own installer adds once the user agrees.
+description: Use when backing up or restoring a development environment, or when asked to migrate one to a new machine - a new Mac, laptop or Linux box. Carries dotfiles, config, SSH keys and cloud credentials, git repositories, AI coding agent state (Claude Code, Codex, Cursor and the rest), and installed software; also use when working with an .envrelay backup file. Covers what to carry, what to leave behind and rebuild, how to record it in a manifest, and how to replay it on the new machine (macOS and Linux). Once the user agrees, it installs the envrelay binary, which encrypts the backup, into ~/.local/bin.
+compatibility: Needs macOS or Linux with a terminal the user can type into, python3 3.9 or newer, git 2.31 or newer, and the envrelay binary, which the skill's own installer adds once the user agrees.
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/*)
 metadata:
-  version: "1.0.2"
+  version: "1.0.3"
 clawdis:
   requires:
     bins:
@@ -60,7 +60,7 @@ yours.
 | Script | Does | Never does |
 |---|---|---|
 | `stage_copy.py SRC DEST [--exclude N…] [--hash] [--hash-prefix P]` | Copies one entry into staging: permissions and symlinks (dangling included) preserved, excludes applied, unreadable and special files *skipped and recorded* instead of sinking the copy, per-file SHA-256 with `--hash`, keys prefixed with `--hash-prefix`. Cleans up its own partial copy on failure | Follow symlinks, read file contents, write outside DEST |
-| `git_classify.py PATH… \| --scan ROOT` | Finds repositories and reports facts: the five-state classification, remotes, branch, head, uncommitted/unpushed/stash counts | Choose a strategy, run any mutating git command |
+| `git_classify.py PATH… \| --scan ROOT` | Finds repositories and reports facts: the five-state classification, remotes, branch, head, uncommitted/unpushed/stash counts | Choose a strategy, run any mutating git command, let a repository's config start a program |
 | `sw_inventory.py [--apps] [--diff MANIFEST]` | One-shot batch enumeration of every present package manager, GUI apps by bundle id, and the manifest-vs-machine diff | Install, uninstall, resolve names against registries |
 | `restore_ledger.py LEDGER CMD…` | Per-item restore state: `init` seeds one `pending` line per manifest entry, then `set`, `list`, `report`. Survives an interrupted restore so you resume instead of re-deriving | Change anything outside its own ledger file |
 | `agent_inventory.py [--agents …] [--no-sizes] [--recent-days N] [--diff MANIFEST]` | One pass over every AI coding agent on the machine: which are installed and at what version, their config/extension/session/credential paths with sizes, their extensions by name, their MCP servers with **key names only**, and what no rule accounts for | Read a session transcript, read a credential file, print any secret value |

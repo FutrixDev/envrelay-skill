@@ -28,7 +28,7 @@ curl -fsSL https://envrelay.com/install.sh | sh
 
 - 把 `envrelay` 放进 `~/.local/bin`，如果这个目录还不在 `PATH` 里，就在你的 shell 配置文件里加上；
 - 把 skill 放进 `~/.agents/skills/envrelay`——Codex、Cursor、Gemini CLI、GitHub Copilot、OpenCode 等大多数 agent 都从这里找 skill——再为 Claude Code 链接一份到 `~/.claude/skills`（用 Kiro 或 Cline 的话，也链接到 `~/.kiro/skills`、`~/.cline/skills`）；
-- 检查 skill 的脚本要用的 python3 3.9+ 和 git 在不在。
+- 检查 skill 的脚本要用的 python3 3.9+ 和 git 2.31+ 在不在。
 
 然后开一个新的 coding agent 会话，对它说：
 
@@ -62,7 +62,7 @@ curl -fsSL https://envrelay.com/install.sh | sh -s -- --dry-run
 ### 需要什么
 
 - **macOS 11 及以上，或 Linux**，x86_64 或 arm64。Linux 版是静态链接的，任何发行版都能跑。Windows 请用 WSL。
-- **python3 3.9+ 和 git**，skill 的脚本要用。Mac 上这两样都来自苹果的 Command Line Tools：缺的话，安装器会打开苹果的安装程序，你点一下“安装”即可。Linux 上它会告诉你该跑哪条包管理器命令。
+- **python3 3.9+ 和 git 2.31+**，skill 的脚本要用。Mac 上这两样都来自苹果的 Command Line Tools：缺的话，安装器会打开苹果的安装程序，你点一下“安装”即可。Linux 上它会告诉你该跑哪条包管理器命令。
 - **一个能读 Agent Skills 的 coding agent**：Claude Code、Codex、Cursor、Gemini CLI、GitHub Copilot、OpenCode 等等。
 
 就这些。你平时用的包管理器（Homebrew、npm、cargo 等）只在你想让 agent 在新机器上把软件装回来时才用得上；`age` 和 `zstd` 只有走[逃生通道](#逃生通道)时才需要。
@@ -222,10 +222,11 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 cargo build --release
 sh tests/installer.sh
+python3 tests/git_classify.py
 sh .github/scripts/check-versions.sh
 ```
 
-`tests/installer.sh` 用当前 checkout 打出来的 release 跑安装器，每个场景一个一次性的 `HOME`，所以要先 build release。安装器只从 GitHub 下载，所以由一个替身 curl（[`tests/stubs/curl`](tests/stubs/curl)）代替 GitHub 提供这个 release。`SH=dash sh tests/installer.sh` 换一个 shell 跑安装器；CI 在 sh、dash、bash、zsh 下各跑一遍。`check-versions.sh` 检查所有写了版本号的地方是否一致。
+`tests/installer.sh` 用当前 checkout 打出来的 release 跑安装器，每个场景一个一次性的 `HOME`，所以要先 build release。安装器只从 GitHub 下载，所以由一个替身 curl（[`tests/stubs/curl`](tests/stubs/curl)）代替 GitHub 提供这个 release。`SH=dash sh tests/installer.sh` 换一个 shell 跑安装器；CI 在 sh、dash、bash、zsh 下各跑一遍。`tests/git_classify.py` 检查仓库清点不会启动被扫描仓库的 git 配置里写的任何程序。`check-versions.sh` 检查所有写了版本号的地方是否一致。
 
 ## 发版
 
